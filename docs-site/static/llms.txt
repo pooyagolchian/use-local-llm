@@ -1,0 +1,222 @@
+# use-local-llm
+
+> React hooks for streaming responses from local LLMs — Ollama, LM Studio, llama.cpp. Zero server required.
+
+## About
+
+use-local-llm is a lightweight TypeScript library that provides React hooks for streaming chat and completion responses from locally-running large language models. It works entirely in the browser via fetch + ReadableStream — no backend proxy or server needed. It supports Ollama, LM Studio, llama.cpp, and any OpenAI-compatible local endpoint. The package is 2.8 KB gzipped with zero runtime dependencies (only `react` as a peer dependency).
+
+- **npm**: https://www.npmjs.com/package/use-local-llm
+- **GitHub**: https://github.com/pooyagolchian/use-local-llm
+- **Documentation**: https://pooyagolchian.github.io/use-local-llm/
+- **Live Demo**: https://pooyagolchian.github.io/use-local-llm/demo/
+
+## Installation
+
+```
+npm install use-local-llm
+# or
+pnpm add use-local-llm
+# or
+yarn add use-local-llm
+```
+
+Peer dependency: `react >= 17.0.0`
+
+## Hooks
+
+### useOllama(model, options?)
+
+Zero-config chat hook for Ollama. Simplest way to get started.
+
+```tsx
+import { useOllama } from "use-local-llm";
+
+const { messages, send, isStreaming, abort, clear } = useOllama("llama3.2");
+
+send("Hello!"); // streams response into messages[]
+```
+
+**Parameters:**
+- `model` (string) — Ollama model name (e.g. "llama3.2", "mistral", "gemma3:1b")
+- `options?` (OllamaOptions) — `{ system?, temperature?, endpoint?, onToken?, onResponse?, onError? }`
+
+**Returns:** `{ messages, send, isStreaming, isLoading, abort, error, clear }`
+
+### useLocalLLM(options)
+
+Full-featured chat hook supporting all backends with message history, streaming, and abort.
+
+```tsx
+import { useLocalLLM } from "use-local-llm";
+
+const { messages, send, isStreaming } = useLocalLLM({
+  endpoint: "http://localhost:11434",
+  model: "llama3.2",
+  backend: "ollama", // or "lmstudio", "llamacpp", "openai-compatible"
+  system: "You are a helpful assistant.",
+});
+```
+
+**Parameters (LocalLLMOptions):**
+- `endpoint` (string) — Base URL of the LLM server
+- `model` (string) — Model name
+- `backend?` (Backend) — "ollama" | "lmstudio" | "llamacpp" | "openai-compatible" (auto-detected from port if omitted)
+- `system?` (string) — System prompt
+- `temperature?` (number) — Generation temperature
+- `onToken?` (fn) — Called on each token
+- `onResponse?` (fn) — Called when response completes
+- `onError?` (fn) — Called on error
+
+**Returns (LocalLLMResult):**
+- `messages` (ChatMessage[]) — Full conversation history
+- `send(content: string)` — Send a user message
+- `isStreaming` (boolean) — Whether the model is generating
+- `isLoading` (boolean) — Whether a request is in-flight
+- `abort()` — Abort current generation
+- `error` (Error | null) — Any error
+- `clear()` — Clear conversation history
+
+### useStreamCompletion(options)
+
+Low-level hook for streaming text completions (non-chat, single prompt).
+
+```tsx
+import { useStreamCompletion } from "use-local-llm";
+
+const { text, isStreaming, start, abort } = useStreamCompletion({
+  endpoint: "http://localhost:11434",
+  model: "llama3.2",
+  prompt: "Explain React hooks in one paragraph.",
+});
+
+start(); // begins streaming
+```
+
+**Parameters (StreamCompletionOptions):**
+- `endpoint` (string) — Base URL
+- `model` (string) — Model name
+- `prompt` (string) — The prompt to send
+- `backend?` (Backend) — Auto-detected if omitted
+- `autoFetch?` (boolean) — Auto-start on prompt change (default: false)
+- `temperature?` (number)
+- `onToken?`, `onComplete?`, `onError?` — Callbacks
+
+**Returns (StreamCompletionResult):**
+- `text` (string) — Accumulated response text
+- `tokens` (string[]) — Individual tokens received
+- `isStreaming` (boolean)
+- `start()` — Start/restart the stream
+- `abort()` — Abort the stream
+- `error` (Error | null)
+
+### useModelList(options?)
+
+Hook to discover available models on a local LLM runtime. Auto-fetches on mount.
+
+```tsx
+import { useModelList } from "use-local-llm";
+
+const { models, isLoading, refresh } = useModelList();
+// models: [{ name: "llama3.2", size: 2000000000, ... }, ...]
+```
+
+**Parameters (ModelListOptions):**
+- `endpoint?` (string) — Defaults to Ollama localhost
+- `backend?` (Backend) — Auto-detected if omitted
+
+**Returns (ModelListResult):**
+- `models` (LocalModel[]) — Available models
+- `isLoading` (boolean)
+- `error` (Error | null)
+- `refresh()` — Re-fetch the model list
+
+## Types
+
+```typescript
+type Backend = "ollama" | "lmstudio" | "llamacpp" | "openai-compatible";
+
+interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface StreamChunk {
+  content: string;
+  done: boolean;
+  model?: string;
+}
+
+interface LocalModel {
+  name: string;
+  size?: number;
+  modifiedAt?: string;
+  digest?: string;
+}
+```
+
+## Utilities (Advanced)
+
+```typescript
+import {
+  parseStreamChunk,
+  streamChat,
+  streamGenerate,
+  detectBackend,
+  ENDPOINTS,
+  CHAT_PATHS,
+  GENERATE_PATHS,
+  MODEL_LIST_PATHS,
+} from "use-local-llm";
+```
+
+- `parseStreamChunk(raw, backend)` — Parse a raw SSE/NDJSON chunk into a StreamChunk
+- `streamChat(endpoint, backend, model, messages, options?)` — Async generator yielding StreamChunks for chat
+- `streamGenerate(endpoint, backend, model, prompt, options?)` — Async generator yielding StreamChunks for completion
+- `detectBackend(url)` — Auto-detect backend from URL port (11434→ollama, 1234→lmstudio, 8080→llamacpp)
+- `ENDPOINTS` — Default endpoint configs per backend
+- `CHAT_PATHS` / `GENERATE_PATHS` / `MODEL_LIST_PATHS` — API path mappings per backend
+
+## Backend Configuration
+
+| Backend | Default Port | Chat Path | Generate Path |
+|---------|-------------|-----------|---------------|
+| Ollama | 11434 | /api/chat | /api/generate |
+| LM Studio | 1234 | /v1/chat/completions | /v1/completions |
+| llama.cpp | 8080 | /v1/chat/completions | /completion |
+| OpenAI-compatible | — | /v1/chat/completions | /v1/completions |
+
+## CORS Setup
+
+When calling local LLMs from a browser, you need CORS enabled:
+
+**Ollama:** `OLLAMA_ORIGINS="*" ollama serve`
+**LM Studio:** Enable CORS in Settings → Server
+**llama.cpp:** Start with `--cors-allow-origin '*'`
+
+Alternatively, use a dev proxy (Vite, Next.js rewrites) to avoid CORS entirely.
+
+## Project Structure
+
+```
+src/
+├── hooks/
+│   ├── useLocalLLM.ts      — Full chat hook
+│   ├── useOllama.ts         — Zero-config Ollama wrapper
+│   ├── useStreamCompletion.ts — Text completion hook
+│   └── useModelList.ts      — Model discovery hook
+├── utils/
+│   ├── streamParser.ts      — SSE/NDJSON stream parsing engine
+│   └── endpoints.ts         — Backend presets and auto-detection
+├── types/
+│   └── index.ts             — All TypeScript interfaces
+└── index.ts                 — Barrel exports
+```
+
+## Optional Links
+
+- [API Reference](https://pooyagolchian.github.io/use-local-llm/docs/api/use-ollama)
+- [CORS Setup Guide](https://pooyagolchian.github.io/use-local-llm/docs/guides/cors-setup)
+- [Backend Configuration](https://pooyagolchian.github.io/use-local-llm/docs/guides/backends)
+- [Advanced Usage](https://pooyagolchian.github.io/use-local-llm/docs/guides/advanced-usage)
+- [Architecture Internals](https://pooyagolchian.github.io/use-local-llm/docs/internals/architecture)

@@ -7,10 +7,14 @@ import {
 
 type Tab = "chat" | "completion" | "models" | "code";
 
+const isDev = import.meta.env.DEV;
+const DEFAULT_ENDPOINT = isDev ? "/ollama" : "http://localhost:11434";
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("chat");
-  const [endpoint, setEndpoint] = useState("http://localhost:11434");
+  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT);
   const [model, setModel] = useState("gemma3:1b");
+  const [showCorsHelp, setShowCorsHelp] = useState(false);
 
   return (
     <div className="app">
@@ -43,6 +47,35 @@ export default function App() {
             />
           </label>
         </div>
+        <button
+          className="btn btn--ghost"
+          style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}
+          onClick={() => setShowCorsHelp((v) => !v)}
+        >
+          {showCorsHelp ? "Hide" : "Show"} CORS setup guide
+        </button>
+        {showCorsHelp && (
+          <div className="cors-help">
+            <p>
+              Browsers block requests from a web page to <code>localhost:11434</code> due
+              to <strong>CORS</strong>. To fix this, set the{" "}
+              <code>OLLAMA_ORIGINS</code> environment variable before starting Ollama:
+            </p>
+            <pre className="code-block">
+{`# macOS / Linux
+OLLAMA_ORIGINS="*" ollama serve
+
+# Or set it permanently:
+launchctl setenv OLLAMA_ORIGINS "*"    # macOS
+systemctl edit ollama                  # Linux (add Environment line)`}
+            </pre>
+            <p style={{ marginTop: "0.75rem" }}>
+              After restarting Ollama with this setting, refresh this page.
+              For local development, use <code>pnpm dev</code> — the Vite proxy
+              bypasses CORS automatically.
+            </p>
+          </div>
+        )}
       </div>
 
       <nav className="tabs">

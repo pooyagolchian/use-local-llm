@@ -376,6 +376,31 @@ body {
   margin-bottom: 1rem;
 }
 
+/* CORS help */
+.cors-help {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid #854d0e;
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.cors-help code {
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.cors-help .code-block {
+  margin-top: 0.5rem;
+}
+
 /* Footer */
 .footer {
   text-align: center;
